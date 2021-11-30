@@ -10,7 +10,8 @@ var logger = require("morgan");
 
 // Routes
 var indexRouter = require("./routes/index");
-var usersRouter = require("./routes/users");
+var customersRouter = require("./routes/customers");
+var roomsRouter = require("./routes/rooms");
 
 var app = express();
 
@@ -29,7 +30,8 @@ app.use(express.static(path.join(__dirname, "public")));
 
 // root path for the routes
 app.use("/", indexRouter);
-app.use("/users", usersRouter);
+app.use("/customers", customersRouter);
+app.use("/rooms", roomsRouter);
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
