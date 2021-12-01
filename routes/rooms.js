@@ -1,4 +1,5 @@
 var express = require("express");
+const { ObjectId } = require("mongodb"); // to use ObjectID from mongodb
 var router = express.Router(); // Responsible for routes
 const { mongodb, MongoClient, dbUrl, dbURL } = require("../dbConfig"); // importing from dBConfig file
 
@@ -43,6 +44,104 @@ router.post("/create-room", async (req, res) => {
     });
   } catch (err) {
     console.log(err);
+    res.send({ message: "Error in connection" });
+  } finally {
+    client.close();
+  }
+});
+
+// put method -> to book a room in the hotel
+router.put("/book-room/:id", async (req, res) => {
+  const client = await MongoClient.connect(dbURL);
+
+  //  to store the Occupied date and time
+  let OStartTime,
+    OEndTime = null;
+
+  try {
+    const db = client.db("hallBooking");
+
+    // fetching the required room details
+
+    let roomDetails = await db
+      .collection("rooms")
+      .findOne({ _id: ObjectId(req.params.id) });
+
+    // verify the date is empty
+    if (roomDetails.date !== "") {
+      // Occupied timings
+      OStartTime = Date.parse(
+        `${roomDetails.date} ${roomDetails.startTime}:00 GMT+0530`
+      );
+
+      OEndTime = Date.parse(
+        `${roomDetails.date} ${roomDetails.endTime}:00 GMT+0530`
+      );
+    }
+
+    // Booking timings
+    let BStartTime = Date.parse(
+      `${req.body.date} ${req.body.startTime}:00 GMT+0530`
+    );
+    let BEndTime = Date.parse(
+      `${req.body.date} ${req.body.endTime}:00 GMT+0530`
+    );
+
+    //  if the dates are empty that means the book is vacant
+    if (roomDetails.date === "") {
+      // inserting the customer collection with customer details
+      let customerDetails = await db.collection("customers").insertOne({
+        customerName: req.body.customerName,
+        date: req.body.date,
+        startTime: req.body.startTime,
+        endTime: req.body.endTime,
+        roomName: roomDetails.roomName,
+      });
+
+      // updating the room collection with the current room details
+      let roomData = await db.collection("rooms").updateOne(
+        { _id: ObjectId(req.params.id) },
+        {
+          $set: {
+            customerName: req.body.customerName,
+            date: req.body.date,
+            startTime: req.body.startTime,
+            endTime: req.body.endTime,
+            status: "Occupied",
+          },
+        }
+      );
+
+      // sending response
+      res.send({ message: "Room Booked!!!", data: customerDetails });
+    }
+    // if the room is not empty then verfiy the already booked start and end timings
+    else if (
+      (BStartTime < OStartTime && BEndTime < OStartTime) ||
+      (BStartTime > OEndTime && BEndTime > OEndTime)
+    ) {
+      let customerDetails = await db
+        .collection("customers")
+        .insertOne(req.body);
+
+      let roomData = await db.collection("rooms").updateOne(
+        { _id: ObjectId(req.params.id) },
+        {
+          $set: {
+            customerName: req.body.customerName,
+            date: req.body.date,
+            startTime: req.body.startTime,
+            endTime: req.body.endTime,
+            status: "Occupied",
+          },
+        }
+      );
+
+      res.send({ message: "Room Booked!!!", data: customerDetails });
+    } else {
+      res.send({ message: "Room Occupied" });
+    }
+  } catch (err) {
     res.send({ message: "Error in connection" });
   } finally {
     client.close();
