@@ -30,6 +30,39 @@ router.get("/", async (req, res) => {
   }
 });
 
+// To get the booked room details
+router.get("/booked-rooms", async (req, res) => {
+  const client = await MongoClient.connect(dbURL);
+
+  try {
+    const db = client.db("hallBooking");
+
+    // find({condition}, {fieldWeNeed : 1})
+    // select roomName, status, customerName, date, startTime, endTime from rooms
+    let data = await db
+      .collection("rooms")
+      .find(
+        { status: "Occupied" },
+        {
+          roomName: 1,
+          status: 1,
+          customerName: 1,
+          date: 1,
+          startTime: 1,
+          endTime: 1,
+        }
+      )
+      .toArray();
+
+    res.send({ message: "Success", bookedRooms: data });
+  } catch (err) {
+    console.log(err);
+    res.send({ message: "Error in connection" });
+  } finally {
+    client.close();
+  }
+});
+
 // Post method -> to create a room in the hotel
 router.post("/create-room", async (req, res) => {
   const client = await MongoClient.connect(dbURL);
@@ -68,7 +101,7 @@ router.put("/book-room/:id", async (req, res) => {
       .findOne({ _id: ObjectId(req.params.id) });
 
     // verify the date is empty
-    if (roomDetails.date !== "") {
+    if (roomDetails.date !== null) {
       // Occupied timings
       OStartTime = Date.parse(
         `${roomDetails.date} ${roomDetails.startTime}:00 GMT+0530`
@@ -88,7 +121,7 @@ router.put("/book-room/:id", async (req, res) => {
     );
 
     //  if the dates are empty that means the book is vacant
-    if (roomDetails.date === "") {
+    if (roomDetails.date === null) {
       // inserting the customer collection with customer details
       let customerDetails = await db.collection("customers").insertOne({
         customerName: req.body.customerName,
@@ -117,8 +150,8 @@ router.put("/book-room/:id", async (req, res) => {
     }
     // if the room is not empty then verfiy the already booked start and end timings
     else if (
-      (BStartTime < OStartTime && BEndTime < OStartTime) ||
-      (BStartTime > OEndTime && BEndTime > OEndTime)
+      (BStartTime <= OStartTime && BEndTime <= OStartTime) ||
+      (BStartTime >= OEndTime && BEndTime >= OEndTime)
     ) {
       let customerDetails = await db
         .collection("customers")
