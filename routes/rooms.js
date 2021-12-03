@@ -153,9 +153,13 @@ router.put("/book-room/:id", async (req, res) => {
       (BStartTime <= OStartTime && BEndTime <= OStartTime) ||
       (BStartTime >= OEndTime && BEndTime >= OEndTime)
     ) {
-      let customerDetails = await db
-        .collection("customers")
-        .insertOne(req.body);
+      let customerDetails = await db.collection("customers").insertOne({
+        customerName: req.body.customerName,
+        date: req.body.date,
+        startTime: req.body.startTime,
+        endTime: req.body.endTime,
+        roomName: roomDetails.roomName,
+      });
 
       let roomData = await db.collection("rooms").updateOne(
         { _id: ObjectId(req.params.id) },
